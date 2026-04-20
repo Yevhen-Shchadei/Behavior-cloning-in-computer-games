@@ -1,0 +1,19 @@
+from pathlib import Path
+
+
+SCREEN_W, SCREEN_H = 800, 700
+FPS = 30
+GRAVITY = 0.5
+FLAP_FORCE = -8.0
+MAX_ABS_VEL = 12.0
+PIPE_GAP = 100
+PIPE_WIDTH = 52
+PIPE_DISTANCE = 200
+BASE_HEIGHT = 112
+BIRD_START_X = 50
+RECORD_DEFAULT = False
+NORMALIZE_STATE = True
+RANDOM_SEED = None
+
+PACKAGE_DIR = Path(__file__).resolve().parent
+DATA_DIR = PACKAGE_DIR / "data"
