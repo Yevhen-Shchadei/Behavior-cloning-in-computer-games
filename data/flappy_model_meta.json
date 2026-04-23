@@ -1,0 +1,14 @@
+{
+  "input_dim": 7,
+  "feature_cols": [
+    "bird_x_norm",
+    "bird_y_norm",
+    "bird_vel_norm",
+    "dist_to_pipe_x_norm",
+    "pipe_top_y_norm",
+    "pipe_bottom_y_norm",
+    "pipe_gap_center_y_norm"
+  ],
+  "feature_mode": "named_norm",
+  "device": "cpu"
+}
