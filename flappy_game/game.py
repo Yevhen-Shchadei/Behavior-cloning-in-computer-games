@@ -75,9 +75,15 @@ class FlappyGame:
         self.clouds = self.create_clouds()
 
         try:
+            # self.ai_agent = AIAgent(
+            #     model_path="flappy_game/data/flappy_model.pt",
+            #     meta_path="flappy_game/data/flappy_model_meta.json",
+            #     threshold=self.ai_threshold,
+            # )
+            # NEW - loads your trained model
             self.ai_agent = AIAgent(
-                model_path="flappy_game/data/flappy_model.pt",
-                meta_path="flappy_game/data/flappy_model_meta.json",
+                model_path="flappy_game/data/flappy_model_Y.pt",
+                meta_path="flappy_game/data/flappy_model_meta_Y.json",
                 threshold=self.ai_threshold,
             )
             print("AI model loaded")
@@ -316,8 +322,12 @@ class FlappyGame:
         hit = False
 
         for pipe in self.pipes:
-            upper_rect = pygame.Rect(int(pipe.x), 0, pipe.width, pipe.gap_center - PIPE_GAP // 2)
-            lower_rect = pygame.Rect(int(pipe.x), pipe.gap_center + PIPE_GAP // 2, pipe.width, SCREEN_H)
+            upper_rect = pygame.Rect(
+                int(pipe.x), 0, pipe.width, pipe.gap_center - PIPE_GAP // 2
+            )
+            lower_rect = pygame.Rect(
+                int(pipe.x), pipe.gap_center + PIPE_GAP // 2, pipe.width, SCREEN_H
+            )
 
             if bird_rect.colliderect(upper_rect) or bird_rect.colliderect(lower_rect):
                 hit = True
@@ -358,7 +368,9 @@ class FlappyGame:
         pulse = math.sin(self.frame_count * 0.03) * 3
         radius = int(42 + pulse)
         pygame.draw.circle(surface, (255, 235, 150), (SCREEN_W - 90, 90), radius)
-        pygame.draw.circle(surface, (255, 245, 190), (SCREEN_W - 90, 90), max(10, radius - 10))
+        pygame.draw.circle(
+            surface, (255, 245, 190), (SCREEN_W - 90, 90), max(10, radius - 10)
+        )
 
     def draw_cloud(self, surface, x, y, w, h):
         cloud_surface = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
@@ -370,15 +382,23 @@ class FlappyGame:
 
     def draw_clouds(self, surface):
         for cloud in self.clouds:
-            self.draw_cloud(surface, int(cloud["x"]), int(cloud["y"]), cloud["w"], cloud["h"])
+            self.draw_cloud(
+                surface, int(cloud["x"]), int(cloud["y"]), cloud["w"], cloud["h"]
+            )
 
     def draw_hud_panel(self, surface):
         panel = pygame.Surface((SCREEN_W - 16, 92), pygame.SRCALPHA)
-        pygame.draw.rect(panel, (255, 255, 255, 145), panel.get_rect(), border_radius=16)
-        pygame.draw.rect(panel, (255, 255, 255, 220), panel.get_rect(), width=2, border_radius=16)
+        pygame.draw.rect(
+            panel, (255, 255, 255, 145), panel.get_rect(), border_radius=16
+        )
+        pygame.draw.rect(
+            panel, (255, 255, 255, 220), panel.get_rect(), width=2, border_radius=16
+        )
         surface.blit(panel, (8, 8))
 
-    def draw_text_shadow(self, surface, text, font, color, pos, shadow=(0, 0, 0), offset=(2, 2)):
+    def draw_text_shadow(
+        self, surface, text, font, color, pos, shadow=(0, 0, 0), offset=(2, 2)
+    ):
         shadow_surf = font.render(text, True, shadow)
         text_surf = font.render(text, True, color)
         surface.blit(shadow_surf, (pos[0] + offset[0], pos[1] + offset[1]))
@@ -392,8 +412,12 @@ class FlappyGame:
             pulse = 1.0 + 0.28 * math.sin((18 - self.score_anim_timer) * 0.65)
 
         score_font = pygame.font.SysFont("arial", int(28 * pulse), bold=True)
-        self.draw_text_shadow(surface, f"Score: {self.score}", score_font, (25, 25, 25), (20, 20))
-        self.draw_text_shadow(surface, f"Best: {self.best_score}", self.font, (60, 60, 60), (170, 22))
+        self.draw_text_shadow(
+            surface, f"Score: {self.score}", score_font, (25, 25, 25), (20, 20)
+        )
+        self.draw_text_shadow(
+            surface, f"Best: {self.best_score}", self.font, (60, 60, 60), (170, 22)
+        )
 
         if self.recording:
             rec_color = (220, 30, 30)
@@ -434,8 +458,12 @@ class FlappyGame:
         title.set_alpha(title_alpha)
         subtitle.set_alpha(title_alpha)
 
-        surface.blit(title, (SCREEN_W // 2 - title.get_width() // 2, SCREEN_H // 2 - 50))
-        surface.blit(subtitle, (SCREEN_W // 2 - subtitle.get_width() // 2, SCREEN_H // 2 + 5))
+        surface.blit(
+            title, (SCREEN_W // 2 - title.get_width() // 2, SCREEN_H // 2 - 50)
+        )
+        surface.blit(
+            subtitle, (SCREEN_W // 2 - subtitle.get_width() // 2, SCREEN_H // 2 + 5)
+        )
 
     def draw_hit_flash(self, surface):
         if self.hit_flash_timer <= 0:

@@ -1,8 +1,14 @@
 import json
+import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
+
+# Import ResidualNet
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from yarik_topology import ResidualNet
 
 
 class FlappyNet(nn.Module):
@@ -48,12 +54,30 @@ class AIAgent:
         self.model_type = meta.get("model_type", "small")
         self.threshold = threshold
 
-        if self.model_type == "bigger":
-            self.model = BiggerFlappyNet(in_features=self.input_dim).to(self.device)
-        else:
-            self.model = FlappyNet(in_features=self.input_dim).to(self.device)
+        # Check if it's a ResidualNet model (if model_type doesn't exist, try ResidualNet first)
+        try:
+            self.model = ResidualNet(
+                input_dim=self.input_dim, hidden=32, num_classes=2
+            ).to(self.device)
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            print(f"Loaded ResidualNet model with input_dim={self.input_dim}")
+        except Exception as e:
+            # Fallback to original models
+            if self.model_type == "bigger":
+                self.model = BiggerFlappyNet(in_features=self.input_dim).to(self.device)
+            else:
+                self.model = FlappyNet(in_features=self.input_dim).to(self.device)
 
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            try:
+                self.model.load_state_dict(
+                    torch.load(model_path, map_location=self.device)
+                )
+                print(f"Loaded {self.model_type} FlappyNet model")
+            except Exception as e2:
+                raise RuntimeError(
+                    f"Failed to load model: {e}\nFallback also failed: {e2}"
+                )
+
         self.model.eval()
 
     def predict_action(self, features):

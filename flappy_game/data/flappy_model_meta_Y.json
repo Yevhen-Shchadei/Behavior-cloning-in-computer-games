@@ -1,0 +1,16 @@
+{
+  "input_dim": 9,
+  "feature_cols": [
+    "bird_center_y",
+    "bird_vel",
+    "dist_x",
+    "pipe_top_y",
+    "pipe_bottom_y",
+    "pipe_gap_center",
+    "bird_to_gap_center",
+    "bird_to_top",
+    "bird_to_bottom"
+  ],
+  "feature_mode": "derived_9_features",
+  "device": "cpu"
+}
