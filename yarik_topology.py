@@ -37,7 +37,7 @@ class ResidualBlock(nn.Module):
 
 
 class ResidualNet(nn.Module):
-    def __init__(self, input_dim=13, hidden=32, num_classes=3):
+    def __init__(self, input_dim=9, hidden=32, num_classes=3):
         super().__init__()
         # Початкове розширення фіч
         self.input_layer = nn.Linear(input_dim, hidden)
