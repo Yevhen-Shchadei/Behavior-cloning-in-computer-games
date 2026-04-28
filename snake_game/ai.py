@@ -7,7 +7,7 @@ import pygame
 import torch
 import torch.nn as nn
 
-from .config import BIG_MODEL_PATH, SMALL_MODEL_PATH
+from config import BIG_MODEL_PATH, SMALL_MODEL_PATH, RES_MODEL_PATH
 
 pygame.init()
 
@@ -21,7 +21,7 @@ GRID_OFFSET_Y = 80
 FPS = 12
 
 # ── AI settings ────────────────────────────────────────────────────────────
-MODEL_PATH = SMALL_MODEL_PATH   # or BIG_MODEL_PATH
+MODEL_PATH = BIG_MODEL_PATH   # or BIG_MODEL_PATH
 AUTO_RESTART = True
 RESTART_DELAY_MS = 1200
 
@@ -144,7 +144,7 @@ class Particle:
 
 # ── Models ─────────────────────────────────────────────────────────────────
 class SmallNet(nn.Module):
-    def __init__(self, input_dim=13, hidden=16, num_classes=3):
+    def __init__(self, input_dim=9, hidden=16, num_classes=3):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden),
@@ -157,7 +157,7 @@ class SmallNet(nn.Module):
 
 
 class BiggerNet(nn.Module):
-    def __init__(self, input_dim=13, h1=32, h2=16, num_classes=3):
+    def __init__(self, input_dim=9, h1=32, h2=16, num_classes=3):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dim, h1),
@@ -169,6 +169,44 @@ class BiggerNet(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+class ResidualBlock(nn.Module):
+    def __init__(self, input_dim, hidden_dim):
+        super().__init__()
+        # Перший шар
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.relu = nn.ReLU()
+        # Другий шар (має повертати таку ж розмірність, як вхід)
+        self.fc2 = nn.Linear(hidden_dim, input_dim)
+
+    def forward(self, x):
+        # Зберігаємо вхідні дані ("пам'ять")
+        identity = x
+
+        # Проходимо крізь шари
+        out = self.fc1(x)
+        out = self.relu(out)
+        out = self.fc2(out)
+
+        # Головна фішка: додаємо вхід до виходу
+        # Це дозволяє сигналу "пролітати" крізь мережу без затухання
+        out += identity
+
+        return self.relu(out)
+
+
+class ResidualNet(nn.Module):
+    def __init__(self, input_dim=9, hidden=32, num_classes=3):
+        super().__init__()
+        self.input_layer = nn.Linear(input_dim, hidden)
+        self.res_block = ResidualBlock(hidden, hidden)
+        self.output_layer = nn.Linear(hidden, num_classes)
+
+    def forward(self, x):
+        x = torch.relu(self.input_layer(x))
+        x = self.res_block(x)  
+        x = self.output_layer(x)
+        return x
 
 
 # ── Main game ──────────────────────────────────────────────────────────────
@@ -268,10 +306,13 @@ class SnakeGameAI:
         path = Path(path)
         path_str = path.name.lower()
 
-        if "bigger" in path_str:
-            model = BiggerNet()
+        # Визначаємо, який клас створити
+        if "res" in path_str:
+            model = ResidualNet(input_dim=9) # Стара модель має 9 входів
+        elif "bigger" in path_str:
+            model = BiggerNet(input_dim=9)
         else:
-            model = SmallNet()
+            model = SmallNet(input_dim=9)
 
         state_dict = torch.load(path, map_location=self.device)
         model.load_state_dict(state_dict)
@@ -327,42 +368,55 @@ class SnakeGameAI:
         fx, fy = self.food
         dx, dy = self.direction
 
+        # 1. Поточний напрямок руху (One-hot encoding)
         dir_up = 1 if (dx, dy) == (0, -1) else 0
         dir_down = 1 if (dx, dy) == (0, 1) else 0
         dir_left = 1 if (dx, dy) == (-1, 0) else 0
         dir_right = 1 if (dx, dy) == (1, 0) else 0
 
-        food_up = 1 if fy < hy else 0
-        food_down = 1 if fy > hy else 0
-        food_left = 1 if fx < hx else 0
-        food_right = 1 if fx > hx else 0
-
+        # Визначаємо вектори для перевірки перешкод
         straight_dir = self.direction
         left_dir = self._turn_left(self.direction)
         right_dir = self._turn_right(self.direction)
 
-        straight_pos = self._next_pos((hx, hy), straight_dir)
-        left_pos = self._next_pos((hx, hy), left_dir)
-        right_pos = self._next_pos((hx, hy), right_dir)
+        # Позиції, куди змійка потрапить на наступному кроці
+        # Використовуємо залишок від ділення (%), щоб врахувати відсутність стін (телепортацію)
+        def get_wrapped_pos(pos):
+            px, py = pos
+            return (px % COLS, py % ROWS)
+
+        straight_pos = get_wrapped_pos(self._next_pos((hx, hy), straight_dir))
+        left_pos = get_wrapped_pos(self._next_pos((hx, hy), left_dir))
+        right_pos = get_wrapped_pos(self._next_pos((hx, hy), right_dir))
 
         body = self.snake[1:]
 
+        # 2. Перевірка небезпеки (тільки власне тіло)
         danger_straight = 1 if straight_pos in body else 0
         danger_left = 1 if left_pos in body else 0
         danger_right = 1 if right_pos in body else 0
 
+        # 3. Відносні координати їжі (Нормалізовані від -1 до 1)
+        # В безмежному світі "відстань" до їжі може бути хитрою (через край ближче),
+        # але стандартна дельта dx/dy зазвичай достатня для навчання.
         dx_food = (fx - hx) / COLS
         dy_food = (fy - hy) / ROWS
 
         return [
-            dir_up, dir_down, dir_left, dir_right,
-            food_up, food_down, food_left, food_right,
-            danger_straight, danger_left, danger_right,
-            dx_food, dy_food
+            dir_up,
+            dir_down,
+            dir_left,
+            dir_right,
+            danger_straight,
+            danger_left,
+            danger_right,
+            dx_food,
+            dy_food,
         ]
-
+    
     def _predict_action(self):
         features = self._get_features()
+        # Створюємо тензор для нейронки (очікує 9 вхідних значень)
         x = torch.tensor([features], dtype=torch.float32, device=self.device)
 
         with torch.no_grad():
@@ -385,6 +439,7 @@ class SnakeGameAI:
 
             if AVOID_DEATH and not self._is_action_safe(action):
                 if safe_actions:
+                    # Обираємо найбезпечнішу дію з тих, що порадила модель
                     action = max(safe_actions, key=lambda a: probs[a])
                     source = "safe_override"
 
@@ -393,20 +448,17 @@ class SnakeGameAI:
         self.last_action_name = f"{action_names.get(action, 'unknown')} [{source}]"
         self.last_probs = probs
 
+        # Оновлені індекси для дебагу (всього 9 значень: від 0 до 8)
         self.debug_features = {
             "dir_up": features[0],
             "dir_down": features[1],
             "dir_left": features[2],
             "dir_right": features[3],
-            "food_up": features[4],
-            "food_down": features[5],
-            "food_left": features[6],
-            "food_right": features[7],
-            "danger_straight": features[8],
-            "danger_left": features[9],
-            "danger_right": features[10],
-            "dx_food": round(features[11], 3),
-            "dy_food": round(features[12], 3),
+            "danger_straight": features[4],
+            "danger_left": features[5],
+            "danger_right": features[6],
+            "dx_food": round(features[7], 3),
+            "dy_food": round(features[8], 3),
         }
 
         return action

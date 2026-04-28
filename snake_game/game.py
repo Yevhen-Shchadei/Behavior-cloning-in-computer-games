@@ -17,7 +17,7 @@ COLS = WIDTH // GRID_SIZE
 ROWS = (HEIGHT - 120) // GRID_SIZE
 GRID_OFFSET_Y = 80
 
-FPS = 12
+FPS = 8
 
 # ── Dataset recording ──────────────────────────────────────────────────────
 RECORD_DATASET = True
@@ -193,13 +193,19 @@ class SnakeGame:
         if self.recording and not os.path.exists(self.data_file):
             with open(self.data_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([
-                    "dir_up", "dir_down", "dir_left", "dir_right",
-                    "food_up", "food_down", "food_left", "food_right",
-                    "danger_straight", "danger_left", "danger_right",
-                    "dx_food", "dy_food",
-                    "action"
-                ])
+                writer.writerow(
+                    [
+                        "dir_up",
+                        "dir_down",
+                        "dir_left",
+                        "dir_right",
+                        "danger_straight",
+                        "danger_left",
+                        "danger_right",
+                        "dx_food",
+                        "dy_food",
+                    ]
+                )
 
     def _log_sample(self, action):
         if not self.recording or self.state != "playing":
@@ -212,36 +218,69 @@ class SnakeGame:
             writer = csv.writer(f)
             writer.writerow(row)
 
+    def _remove_last_n_rows(self, n=40):
+        """Видаляє останні n рядків з CSV датасету."""
+        if not os.path.exists(self.data_file):
+            print(f"Файл {self.data_file} не існує")
+            return
+
+        try:
+            # Читаємо весь файл
+            with open(self.data_file, "r", newline="", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            # Залишаємо заголовок + всі рядки крім останніх n
+            if len(lines) > n + 1:  # +1 для заголовка
+                new_lines = [lines[0]] + lines[1:-n]
+            else:
+                # Якщо менше n рядків, залишаємо тільки заголовок
+                new_lines = [lines[0]]
+
+            # Записуємо назад
+            with open(self.data_file, "w", newline="", encoding="utf-8") as f:
+                f.writelines(new_lines)
+
+            rows_removed = min(n, len(lines) - 1)
+            print(f"✓ delated last {rows_removed} rows")
+        except Exception as e:
+            print(f"✗ delate rows error: {e}")
+
     # ── Background ─────────────────────────────────────────────────────────
     def _create_bg_orbs(self):
         orbs = []
         for _ in range(10):
-            orbs.append({
-                "x": random.randint(0, WIDTH),
-                "y": random.randint(GRID_OFFSET_Y, HEIGHT),
-                "r": random.randint(60, 180),
-                "speed": random.uniform(0.03, 0.10),
-                "phase": random.uniform(0, math.tau),
-                "alpha": random.randint(12, 28),
-                "color": random.choice([
-                    (0, 255, 170),
-                    (0, 180, 255),
-                    (120, 80, 255),
-                ]),
-            })
+            orbs.append(
+                {
+                    "x": random.randint(0, WIDTH),
+                    "y": random.randint(GRID_OFFSET_Y, HEIGHT),
+                    "r": random.randint(60, 180),
+                    "speed": random.uniform(0.03, 0.10),
+                    "phase": random.uniform(0, math.tau),
+                    "alpha": random.randint(12, 28),
+                    "color": random.choice(
+                        [
+                            (0, 255, 170),
+                            (0, 180, 255),
+                            (120, 80, 255),
+                        ]
+                    ),
+                }
+            )
         return orbs
 
     def _create_stars(self):
         stars = []
         for _ in range(65):
-            stars.append({
-                "x": random.uniform(0, WIDTH),
-                "y": random.uniform(0, HEIGHT),
-                "r": random.uniform(0.8, 2.2),
-                "speed": random.uniform(0.05, 0.25),
-                "alpha": random.randint(30, 120),
-                "phase": random.uniform(0, math.tau),
-            })
+            stars.append(
+                {
+                    "x": random.uniform(0, WIDTH),
+                    "y": random.uniform(0, HEIGHT),
+                    "r": random.uniform(0.8, 2.2),
+                    "speed": random.uniform(0.05, 0.25),
+                    "alpha": random.randint(30, 120),
+                    "phase": random.uniform(0, math.tau),
+                }
+            )
         return stars
 
     def _update_bg(self):
@@ -292,43 +331,94 @@ class SnakeGame:
             return 2
         return None
 
+    # def _get_features(self):
+    #     hx, hy = self.snake[0]
+    #     fx, fy = self.food
+    #     dx, dy = self.direction
+
+    #     dir_up = 1 if (dx, dy) == (0, -1) else 0
+    #     dir_down = 1 if (dx, dy) == (0, 1) else 0
+    #     dir_left = 1 if (dx, dy) == (-1, 0) else 0
+    #     dir_right = 1 if (dx, dy) == (1, 0) else 0
+
+    #     food_up = 1 if fy < hy else 0
+    #     food_down = 1 if fy > hy else 0
+    #     food_left = 1 if fx < hx else 0
+    #     food_right = 1 if fx > hx else 0
+
+    #     straight_dir = self.direction
+    #     left_dir = self._turn_left(self.direction)
+    #     right_dir = self._turn_right(self.direction)
+
+    #     straight_pos = self._next_pos((hx, hy), straight_dir)
+    #     left_pos = self._next_pos((hx, hy), left_dir)
+    #     right_pos = self._next_pos((hx, hy), right_dir)
+
+    #     body = self.snake[1:]
+
+    #     danger_straight = 1 if straight_pos in body else 0
+    #     danger_left = 1 if left_pos in body else 0
+    #     danger_right = 1 if right_pos in body else 0
+
+    #     dx_food = (fx - hx) / COLS
+    #     dy_food = (fy - hy) / ROWS
+
+    #     return [
+    #         dir_up, dir_down, dir_left, dir_right,
+    #         food_up, food_down, food_left, food_right,
+    #         danger_straight, danger_left, danger_right,
+    #         dx_food, dy_food
+    #     ]
+
     def _get_features(self):
         hx, hy = self.snake[0]
         fx, fy = self.food
         dx, dy = self.direction
 
+        # 1. Поточний напрямок руху (One-hot encoding)
         dir_up = 1 if (dx, dy) == (0, -1) else 0
         dir_down = 1 if (dx, dy) == (0, 1) else 0
         dir_left = 1 if (dx, dy) == (-1, 0) else 0
         dir_right = 1 if (dx, dy) == (1, 0) else 0
 
-        food_up = 1 if fy < hy else 0
-        food_down = 1 if fy > hy else 0
-        food_left = 1 if fx < hx else 0
-        food_right = 1 if fx > hx else 0
-
+        # Визначаємо вектори для перевірки перешкод
         straight_dir = self.direction
         left_dir = self._turn_left(self.direction)
         right_dir = self._turn_right(self.direction)
 
-        straight_pos = self._next_pos((hx, hy), straight_dir)
-        left_pos = self._next_pos((hx, hy), left_dir)
-        right_pos = self._next_pos((hx, hy), right_dir)
+        # Позиції, куди змійка потрапить на наступному кроці
+        # Використовуємо залишок від ділення (%), щоб врахувати відсутність стін (телепортацію)
+        def get_wrapped_pos(pos):
+            px, py = pos
+            return (px % COLS, py % ROWS)
+
+        straight_pos = get_wrapped_pos(self._next_pos((hx, hy), straight_dir))
+        left_pos = get_wrapped_pos(self._next_pos((hx, hy), left_dir))
+        right_pos = get_wrapped_pos(self._next_pos((hx, hy), right_dir))
 
         body = self.snake[1:]
 
+        # 2. Перевірка небезпеки (тільки власне тіло)
         danger_straight = 1 if straight_pos in body else 0
         danger_left = 1 if left_pos in body else 0
         danger_right = 1 if right_pos in body else 0
 
+        # 3. Відносні координати їжі (Нормалізовані від -1 до 1)
+        # В безмежному світі "відстань" до їжі може бути хитрою (через край ближче),
+        # але стандартна дельта dx/dy зазвичай достатня для навчання.
         dx_food = (fx - hx) / COLS
         dy_food = (fy - hy) / ROWS
 
         return [
-            dir_up, dir_down, dir_left, dir_right,
-            food_up, food_down, food_left, food_right,
-            danger_straight, danger_left, danger_right,
-            dx_food, dy_food
+            dir_up,
+            dir_down,
+            dir_left,
+            dir_right,
+            danger_straight,
+            danger_left,
+            danger_right,
+            dx_food,
+            dy_food,
         ]
 
     # ── Init / reset ───────────────────────────────────────────────────────
@@ -353,7 +443,9 @@ class SnakeGame:
         self._place_food()
 
     def _place_food(self):
-        empty = [(c, r) for c in range(COLS) for r in range(ROWS) if (c, r) not in self.snake]
+        empty = [
+            (c, r) for c in range(COLS) for r in range(ROWS) if (c, r) not in self.snake
+        ]
         self.food = random.choice(empty) if empty else (0, 0)
 
     # ── Main loop ──────────────────────────────────────────────────────────
@@ -376,27 +468,19 @@ class SnakeGame:
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
+                # Ctrl+Z - видалити останні 100 рядків з датасету
+                if event.key == pygame.K_z and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    self._remove_last_n_rows(100)
+                    return
+
                 if self.state == "menu":
                     if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         self.state = "playing"
                         self._reset()
 
                 elif self.state == "playing":
-                    dir_map = {
-                        pygame.K_UP: (0, -1), pygame.K_w: (0, -1),
-                        pygame.K_DOWN: (0, 1), pygame.K_s: (0, 1),
-                        pygame.K_LEFT: (-1, 0), pygame.K_a: (-1, 0),
-                        pygame.K_RIGHT: (1, 0), pygame.K_d: (1, 0),
-                    }
-
-                    if event.key in dir_map:
-                        nd = dir_map[event.key]
-                        if (nd[0] != -self.direction[0] or nd[1] != -self.direction[1]):
-                            action = self._direction_to_relative_action(nd)
-                            if action is not None:
-                                self.pending_action = action
-                            self.next_direction = nd
-
+                    # Тільки ESC обробляємо в KEYDOWN під час гри
+                    # Напрямки обробляються в _update() через pygame.key.get_pressed()
                     if event.key == pygame.K_ESCAPE:
                         self.state = "menu"
 
@@ -410,6 +494,29 @@ class SnakeGame:
     # ── Logic ──────────────────────────────────────────────────────────────
     def _update(self):
         self.food_anim = (self.food_anim + 0.16) % math.tau
+
+        # Перевіряємо вже натиснуті клавіші (не чекаючи на KEYDOWN)
+        keys = pygame.key.get_pressed()
+        dir_map = {
+            pygame.K_UP: (0, -1),
+            pygame.K_w: (0, -1),
+            pygame.K_DOWN: (0, 1),
+            pygame.K_s: (0, 1),
+            pygame.K_LEFT: (-1, 0),
+            pygame.K_a: (-1, 0),
+            pygame.K_RIGHT: (1, 0),
+            pygame.K_d: (1, 0),
+        }
+
+        for key, nd in dir_map.items():
+            if keys[key]:
+                # Перевіряємо що напрямок не протилежний
+                if nd[0] != -self.direction[0] or nd[1] != -self.direction[1]:
+                    action = self._direction_to_relative_action(nd)
+                    if action is not None:
+                        self.pending_action = action
+                    self.next_direction = nd
+                break  # Обробляємо тільки першу натиснуту клавішу
 
         self._log_sample(self.pending_action)
         self.pending_action = 0
@@ -492,7 +599,9 @@ class SnakeGame:
         pygame.display.flip()
 
     def _draw_outer_background(self, surface):
-        draw_vertical_gradient(surface, (0, 0, WIDTH, HEIGHT), BG_OUTER_TOP, BG_OUTER_BOTTOM)
+        draw_vertical_gradient(
+            surface, (0, 0, WIDTH, HEIGHT), BG_OUTER_TOP, BG_OUTER_BOTTOM
+        )
 
     def _draw_ambient_background(self, surface):
         for orb in self.bg_orbs:
@@ -517,7 +626,9 @@ class SnakeGame:
     def _draw_hud_background(self, surface):
         hud_rect = pygame.Rect(0, 0, WIDTH, GRID_OFFSET_Y)
         draw_vertical_gradient(surface, hud_rect, HUD_TOP, HUD_BOTTOM)
-        pygame.draw.line(surface, PANEL_BORDER, (0, GRID_OFFSET_Y - 1), (WIDTH, GRID_OFFSET_Y - 1), 2)
+        pygame.draw.line(
+            surface, PANEL_BORDER, (0, GRID_OFFSET_Y - 1), (WIDTH, GRID_OFFSET_Y - 1), 2
+        )
 
     def _draw_grid(self, surface):
         field_rect = pygame.Rect(0, GRID_OFFSET_Y, WIDTH, ROWS * GRID_SIZE)
@@ -528,11 +639,18 @@ class SnakeGame:
 
         for c in range(COLS + 1):
             x = c * GRID_SIZE
-            pygame.draw.line(grid_surface, (*GRID_LINE, int(42 * pulse)), (x, 0), (x, ROWS * GRID_SIZE))
+            pygame.draw.line(
+                grid_surface,
+                (*GRID_LINE, int(42 * pulse)),
+                (x, 0),
+                (x, ROWS * GRID_SIZE),
+            )
 
         for r in range(ROWS + 1):
             y = r * GRID_SIZE
-            pygame.draw.line(grid_surface, (*GRID_LINE_SOFT, int(65 * pulse)), (0, y), (WIDTH, y))
+            pygame.draw.line(
+                grid_surface, (*GRID_LINE_SOFT, int(65 * pulse)), (0, y), (WIDTH, y)
+            )
 
         surface.blit(grid_surface, (0, GRID_OFFSET_Y))
 
@@ -542,10 +660,26 @@ class SnakeGame:
         color = (65, 110, 190)
         x0, y0, w, h = field_rect
         corners = [
-            ((x0 + 6, y0 + 6), (x0 + 6 + corner_len, y0 + 6), (x0 + 6, y0 + 6 + corner_len)),
-            ((x0 + w - 6, y0 + 6), (x0 + w - 6 - corner_len, y0 + 6), (x0 + w - 6, y0 + 6 + corner_len)),
-            ((x0 + 6, y0 + h - 6), (x0 + 6 + corner_len, y0 + h - 6), (x0 + 6, y0 + h - 6 - corner_len)),
-            ((x0 + w - 6, y0 + h - 6), (x0 + w - 6 - corner_len, y0 + h - 6), (x0 + w - 6, y0 + h - 6 - corner_len)),
+            (
+                (x0 + 6, y0 + 6),
+                (x0 + 6 + corner_len, y0 + 6),
+                (x0 + 6, y0 + 6 + corner_len),
+            ),
+            (
+                (x0 + w - 6, y0 + 6),
+                (x0 + w - 6 - corner_len, y0 + 6),
+                (x0 + w - 6, y0 + 6 + corner_len),
+            ),
+            (
+                (x0 + 6, y0 + h - 6),
+                (x0 + 6 + corner_len, y0 + h - 6),
+                (x0 + 6, y0 + h - 6 - corner_len),
+            ),
+            (
+                (x0 + w - 6, y0 + h - 6),
+                (x0 + w - 6 - corner_len, y0 + h - 6),
+                (x0 + w - 6, y0 + h - 6 - corner_len),
+            ),
         ]
         for origin, hx, hy in corners:
             pygame.draw.line(surface, color, origin, hx, 2)
@@ -560,11 +694,20 @@ class SnakeGame:
             rect = cell_rect(col, row)
 
             if i == 0:
-                draw_glow(surface, SNAKE_HEAD, rect.center, GRID_SIZE + 8, layers=6, alpha_scale=0.9)
+                draw_glow(
+                    surface,
+                    SNAKE_HEAD,
+                    rect.center,
+                    GRID_SIZE + 8,
+                    layers=6,
+                    alpha_scale=0.9,
+                )
 
             inner = rect.inflate(-2, -2)
             draw_rounded_rect(surface, base_color, rect, radius=6)
-            draw_rounded_rect(surface, lerp_color(base_color, WHITE, 0.18), inner, radius=5)
+            draw_rounded_rect(
+                surface, lerp_color(base_color, WHITE, 0.18), inner, radius=5
+            )
 
             shine = pygame.Rect(rect.x + 3, rect.y + 3, rect.w // 3, rect.h // 3)
             pygame.draw.ellipse(surface, (255, 255, 255, 120), shine)
@@ -588,7 +731,9 @@ class SnakeGame:
                 tongue_len = 7 + int(2 * math.sin(self.ambient_t * 7))
                 tx = cx + dx * (GRID_SIZE // 2 + tongue_len)
                 ty = cy + dy * (GRID_SIZE // 2 + tongue_len)
-                pygame.draw.line(surface, (255, 80, 110), (cx + dx * 8, cy + dy * 8), (tx, ty), 2)
+                pygame.draw.line(
+                    surface, (255, 80, 110), (cx + dx * 8, cy + dy * 8), (tx, ty), 2
+                )
 
     def _draw_food(self, surface):
         col, row = self.food
@@ -599,14 +744,18 @@ class SnakeGame:
         r_mid = max(3, int(r_outer * 0.72))
         r_inner = max(2, int(r_outer * 0.38))
 
-        draw_glow(surface, FOOD_COLOR, (cx, cy), r_outer + 10, layers=7, alpha_scale=0.95)
+        draw_glow(
+            surface, FOOD_COLOR, (cx, cy), r_outer + 10, layers=7, alpha_scale=0.95
+        )
         pygame.draw.circle(surface, FOOD_OUTLINE, (cx, cy), r_outer + 1)
         pygame.draw.circle(surface, FOOD_COLOR, (cx, cy), r_mid)
         pygame.draw.circle(surface, FOOD_INNER, (cx, cy), r_inner)
 
         shine_x = cx - r_outer // 3
         shine_y = cy - r_outer // 3
-        pygame.draw.circle(surface, (255, 235, 240), (shine_x, shine_y), max(1, r_inner // 2))
+        pygame.draw.circle(
+            surface, (255, 235, 240), (shine_x, shine_y), max(1, r_inner // 2)
+        )
 
     def _draw_trail(self, surface):
         self.trail = [(x, y, a - 0.08) for x, y, a in self.trail if a > 0]
@@ -644,9 +793,17 @@ class SnakeGame:
         score_label = self.font_tiny.render("SCORE", True, TEXT_DIM)
         surface.blit(score_label, (WIDTH // 2 - 28, 16))
 
-        pulse = 1.0 + 0.12 * math.sin((16 - self.score_flash_timer) * 0.6) if self.score_flash_timer > 0 else 1.0
+        pulse = (
+            1.0 + 0.12 * math.sin((16 - self.score_flash_timer) * 0.6)
+            if self.score_flash_timer > 0
+            else 1.0
+        )
         score_font = pygame.font.SysFont("consolas", int(28 * pulse), bold=True)
-        score_surf = score_font.render(f"{self.score:05d}", True, NEON_CYAN if self.score_flash_timer > 0 else TEXT_MAIN)
+        score_surf = score_font.render(
+            f"{self.score:05d}",
+            True,
+            NEON_CYAN if self.score_flash_timer > 0 else TEXT_MAIN,
+        )
         surface.blit(score_surf, (WIDTH // 2 - score_surf.get_width() // 2, 32))
 
         right_card = pygame.Rect(WIDTH - 160, 10, 146, 58)
@@ -671,25 +828,40 @@ class SnakeGame:
         draw_rounded_rect(surface, (16, 22, 40), card, radius=18)
         draw_rounded_rect(surface, (70, 95, 150), card, radius=18, width=2)
 
-        draw_glow(surface, FOOD_COLOR, (WIDTH // 2, HEIGHT // 2 - 55), 90, layers=8, alpha_scale=0.75)
+        draw_glow(
+            surface,
+            FOOD_COLOR,
+            (WIDTH // 2, HEIGHT // 2 - 55),
+            90,
+            layers=8,
+            alpha_scale=0.75,
+        )
 
         title = self.font_big.render("GAME OVER", True, FOOD_COLOR)
         surface.blit(title, title.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 62)))
 
         score_text = self.font_med.render(f"Score: {self.score}", True, TEXT_MAIN)
-        surface.blit(score_text, score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 5)))
+        surface.blit(
+            score_text, score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 5))
+        )
 
         if self.score >= self.high_score and self.score > 0:
             best_text = self.font_med.render("NEW BEST!", True, NEON_CYAN)
-            surface.blit(best_text, best_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 42)))
+            surface.blit(
+                best_text, best_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 42))
+            )
 
-        info = self.font_small.render("SPACE / R — restart    ESC — menu", True, TEXT_SOFT)
+        info = self.font_small.render(
+            "SPACE / R — restart    ESC — menu", True, TEXT_SOFT
+        )
         surface.blit(info, info.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 88)))
 
     def _draw_menu(self, surface):
         center_y = HEIGHT // 2 - 80
 
-        draw_glow(surface, NEON_CYAN, (WIDTH // 2, center_y), 135, layers=10, alpha_scale=0.65)
+        draw_glow(
+            surface, NEON_CYAN, (WIDTH // 2, center_y), 135, layers=10, alpha_scale=0.65
+        )
 
         title = self.font_huge.render("SNAKE", True, NEON_CYAN)
         sub = self.font_small.render("n e o n   d e l u x e", True, TEXT_DIM)
@@ -697,7 +869,13 @@ class SnakeGame:
         surface.blit(title, title.get_rect(center=(WIDTH // 2, center_y)))
         surface.blit(sub, sub.get_rect(center=(WIDTH // 2, center_y + 54)))
 
-        pygame.draw.line(surface, (40, 80, 150), (WIDTH // 2 - 175, center_y + 78), (WIDTH // 2 + 175, center_y + 78), 1)
+        pygame.draw.line(
+            surface,
+            (40, 80, 150),
+            (WIDTH // 2 - 175, center_y + 78),
+            (WIDTH // 2 + 175, center_y + 78),
+            1,
+        )
 
         pulse = 0.72 + 0.28 * math.sin(self.ambient_t * 3.2)
         start_color = lerp_color((70, 120, 200), NEON_CYAN, pulse)
@@ -713,7 +891,9 @@ class SnakeGame:
         draw_rounded_rect(surface, (55, 80, 130), info_card, radius=14, width=2)
 
         ctrl1 = self.font_small.render("WASD / Arrow keys", True, TEXT_MAIN)
-        ctrl2 = self.font_tiny.render("Dataset recording works as before", True, TEXT_DIM)
+        ctrl2 = self.font_tiny.render(
+            "Dataset recording works as before", True, TEXT_DIM
+        )
         surface.blit(ctrl1, ctrl1.get_rect(center=(WIDTH // 2, HEIGHT - 96)))
         surface.blit(ctrl2, ctrl2.get_rect(center=(WIDTH // 2, HEIGHT - 74)))
 
@@ -728,7 +908,9 @@ class SnakeGame:
         for i in range(18):
             alpha = int(6 + i * 2.2)
             rect = pygame.Rect(i * 2, i * 2, WIDTH - i * 4, HEIGHT - i * 4)
-            pygame.draw.rect(vignette, (0, 0, 0, alpha), rect, width=4, border_radius=20)
+            pygame.draw.rect(
+                vignette, (0, 0, 0, alpha), rect, width=4, border_radius=20
+            )
         surface.blit(vignette, (0, 0))
 
 

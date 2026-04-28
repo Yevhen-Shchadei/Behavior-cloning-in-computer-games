@@ -5,7 +5,9 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 from yarik_topology import ResidualNet
 
 
-from .config import DATA_FILE, MODEL_PATH
+# from .config import DATA_FILE, MODEL_PATH
+MODEL_PATH = "snake_res_model.pth"
+DATA_FILE = "snake_dataset.csv"
 
 BATCH_SIZE = 64
 EPOCHS = 20
@@ -97,7 +99,7 @@ def main():
 
     # small = SmallNet()
     # big = BiggerNet()
-    topology = ResidualNet(input_dim=13, hidden=32, num_classes=3)
+    topology = ResidualNet(input_dim=9, hidden=32, num_classes=3)
 
     print("Model params:", count_params(topology))
 
@@ -108,7 +110,7 @@ def main():
     torch.save(model.state_dict(), MODEL_PATH)
 
     print("\nSaved:")
-    print(f"- {MODEL_PATH.name}")
+    print(f"- {MODEL_PATH}")
 
 if __name__ == "__main__":
     main()
