@@ -14,23 +14,17 @@ import torch.nn as nn
 class ResidualBlock(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super().__init__()
-        # Перший шар
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.relu = nn.ReLU()
-        # Другий шар (має повертати таку ж розмірність, як вхід)
         self.fc2 = nn.Linear(hidden_dim, input_dim)
 
     def forward(self, x):
-        # Зберігаємо вхідні дані ("пам'ять")
         identity = x
 
-        # Проходимо крізь шари
         out = self.fc1(x)
         out = self.relu(out)
         out = self.fc2(out)
 
-        # Головна фішка: додаємо вхід до виходу
-        # Це дозволяє сигналу "пролітати" крізь мережу без затухання
         out += identity
 
         return self.relu(out)
@@ -39,18 +33,15 @@ class ResidualBlock(nn.Module):
 class ResidualNet(nn.Module):
     def __init__(self, input_dim=9, hidden=32, num_classes=3):
         super().__init__()
-        # Початкове розширення фіч
         self.input_layer = nn.Linear(input_dim, hidden)
 
-        # Наш блок із залишковим зв'язком
         self.res_block = ResidualBlock(hidden, hidden)
 
-        # Фінальний класифікатор
         self.output_layer = nn.Linear(hidden, num_classes)
 
     def forward(self, x):
         x = torch.relu(self.input_layer(x))
-        x = self.res_block(x)  # Тут працює skip-connection
+        x = self.res_block(x)  
         x = self.output_layer(x)
         return x
     
